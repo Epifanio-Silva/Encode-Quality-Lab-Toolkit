@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Generated advisor reports
+reports/*
+!reports/.gitkeep
+
+# Generated workflow outputs
+encodes/
+validation/
+comparisons/
+experiments/*
+!experiments/.gitkeep
+
+# Local media samples can be large; keep outside git unless intentionally curated.
+source/
+samples/*
+!samples/.gitkeep

@@ -1,0 +1,130 @@
+profiles:
+  crf_capped:
+    description: VOD/default CRF encode with ABR bitrate caps.
+    mode: crf
+    crf:
+      h264: 20
+      hevc: 24
+      av1: 30
+    preset:
+      h264: medium
+      hevc: slow
+      av1: 6
+    maxrate_multiplier: 1.0
+    bufsize_multiplier: 2.0
+
+  crf_quality:
+    description: Higher quality CRF encode with ABR caps.
+    mode: crf
+    crf:
+      h264: 18
+      hevc: 22
+      av1: 26
+    preset:
+      h264: slow
+      hevc: slow
+      av1: 5
+    maxrate_multiplier: 1.15
+    bufsize_multiplier: 2.0
+
+  live_capped_vbr:
+    description: Live-safe capped VBR with faster presets and tighter VBV.
+    mode: crf
+    crf:
+      h264: 21
+      hevc: 25
+      av1: 32
+    preset:
+      h264: veryfast
+      hevc: medium
+      av1: 8
+    maxrate_multiplier: 1.0
+    bufsize_multiplier: 1.0
+
+  cbr_live:
+    description: Constant-bitrate style live encode for broadcast-like workflows.
+    mode: cbr
+    preset:
+      h264: veryfast
+      hevc: medium
+      av1: 8
+    minrate_multiplier: 1.0
+    maxrate_multiplier: 1.0
+    bufsize_multiplier: 1.0
+
+  mobile_capped:
+    description: Conservative mobile ABR with controlled peaks.
+    mode: crf
+    crf:
+      h264: 22
+      hevc: 26
+      av1: 32
+    preset:
+      h264: medium
+      hevc: medium
+      av1: 7
+    maxrate_multiplier: 1.0
+    bufsize_multiplier: 1.5
+
+  low_latency:
+    description: Low-latency encode with shorter VBV and faster presets.
+    mode: crf
+    crf:
+      h264: 22
+      hevc: 26
+      av1: 34
+    preset:
+      h264: veryfast
+      hevc: fast
+      av1: 8
+    tune:
+      h264: zerolatency
+    maxrate_multiplier: 1.0
+    bufsize_multiplier: 0.5
+
+  file_size:
+    description: Smaller-file VOD encode with slower presets and lower caps.
+    mode: crf
+    crf:
+      h264: 23
+      hevc: 27
+      av1: 34
+    preset:
+      h264: slow
+      hevc: slow
+      av1: 6
+    maxrate_multiplier: 0.9
+    bufsize_multiplier: 2.0
+
+  uhd_hdr_quality:
+    description: Higher-quality UHD/HDR encode profile.
+    mode: crf
+    crf:
+      h264: 18
+      hevc: 20
+      av1: 24
+    preset:
+      h264: slow
+      hevc: slow
+      av1: 5
+    maxrate_multiplier: 1.15
+    bufsize_multiplier: 2.0
+
+selection:
+  priority:
+    compatibility: crf_capped
+    quality: crf_quality
+    bandwidth_savings: crf_capped
+    smallest_file_size: file_size
+    mobile_efficiency: mobile_capped
+    lowest_latency: low_latency
+    4k_hdr_quality: uhd_hdr_quality
+  use_case:
+    vod: crf_capped
+    ott: crf_capped
+    live: live_capped_vbr
+    live_ott: live_capped_vbr
+    mobile: mobile_capped
+    broadcast: cbr_live
+    low_latency: low_latency
+  default: crf_capped

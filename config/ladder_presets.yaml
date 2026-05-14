@@ -1,0 +1,30 @@
+presets:
+  h264_1080p:
+    - {resolution: "1920x1080", bitrate: "6000k"}
+    - {resolution: "1280x720", bitrate: "3500k"}
+    - {resolution: "960x540", bitrate: "1800k"}
+    - {resolution: "640x360", bitrate: "900k"}
+    - {resolution: "426x240", bitrate: "450k"}
+  mobile:
+    - {resolution: "1280x720", bitrate: "2500k"}
+    - {resolution: "960x540", bitrate: "1400k"}
+    - {resolution: "640x360", bitrate: "700k"}
+    - {resolution: "426x240", bitrate: "350k"}
+  hevc_4k:
+    - {resolution: "3840x2160", bitrate: "15000k"}
+    - {resolution: "2560x1440", bitrate: "9000k"}
+    - {resolution: "1920x1080", bitrate: "5000k"}
+    - {resolution: "1280x720", bitrate: "2800k"}
+    - {resolution: "960x540", bitrate: "1400k"}
+  hevc_1080p:
+    - {resolution: "1920x1080", bitrate: "4200k"}
+    - {resolution: "1280x720", bitrate: "2400k"}
+    - {resolution: "960x540", bitrate: "1200k"}
+    - {resolution: "640x360", bitrate: "650k"}
+    - {resolution: "426x240", bitrate: "300k"}
+  av1_vod:
+    - {resolution: "1920x1080", bitrate: "4200k"}
+    - {resolution: "1280x720", bitrate: "2400k"}
+    - {resolution: "960x540", bitrate: "1200k"}
+    - {resolution: "640x360", bitrate: "600k"}
+    - {resolution: "426x240", bitrate: "300k"}

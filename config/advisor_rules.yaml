@@ -1,0 +1,218 @@
+codec_rules:
+  - id: codec.compatibility.h264.high
+    priority: compatibility
+    recommend:
+      video_codec: h264
+      profile: high
+    reason: H.264 High is the safest first choice for broad HLS/DASH device compatibility.
+    confidence: high
+
+  - id: codec.legacy.h264.high
+    any_device: [legacy_stb]
+    recommend:
+      video_codec: h264
+      profile: high
+    reason: Legacy STB workflows should keep H.264 High as the default compatibility target.
+    confidence: high
+
+  - id: codec.uhd_hdr.hevc.main10
+    source:
+      hdr: true
+    recommend:
+      video_codec: hevc
+      profile: main10
+    reason: HEVC Main10 is recommended for HDR delivery.
+    confidence: high
+
+  - id: codec.uhd.hevc.main
+    source:
+      min_width: 3840
+    recommend:
+      video_codec: hevc
+      profile: main
+    reason: HEVC is recommended for 4K delivery when device support is available.
+    confidence: high
+
+  - id: codec.priority_4k_hdr.hevc
+    priority: 4k_hdr_quality
+    recommend:
+      video_codec: hevc
+      profile: main
+    reason: HEVC is recommended when the workflow priority is 4K/HDR quality.
+    confidence: medium
+
+  - id: codec.vod.efficiency.av1
+    use_case: vod
+    priority: smallest_file_size
+    recommend:
+      video_codec: av1
+      profile: main
+    reason: AV1 can reduce VOD bitrate when encode time and device support are acceptable.
+    confidence: medium
+
+  - id: codec.bandwidth_savings.hevc.modern_devices
+    priority: bandwidth_savings
+    none_device: [legacy_stb]
+    recommend:
+      video_codec: hevc
+      profile: main
+    reason: HEVC is recommended for bandwidth savings when legacy playback is not required.
+    confidence: medium
+
+  - id: codec.mobile_efficiency.apple_hevc
+    priority: mobile_efficiency
+    any_device: [ios, apple_tv]
+    recommend:
+      video_codec: hevc
+      profile: main
+    reason: Mobile efficiency favors HEVC on Apple-capable targets.
+    confidence: medium
+
+  - id: codec.mobile_efficiency.h264.fallback
+    priority: mobile_efficiency
+    recommend:
+      video_codec: h264
+      profile: high
+    reason: H.264 keeps mobile compatibility high when HEVC support is not assumed.
+    confidence: medium
+
+  - id: codec.default.h264.high
+    default: true
+    recommend:
+      video_codec: h264
+      profile: high
+    reason: H.264 High is a conservative default until target device support is narrowed.
+    confidence: medium
+
+audio_rules:
+  - id: audio.mobile_low_bitrate.he_aac
+    use_case: mobile
+    priorities: [smallest_file_size, mobile_efficiency]
+    recommend:
+      audio_codec: he_aac
+    reason: HE-AAC is recommended for low-bitrate mobile efficiency.
+    confidence: medium
+
+  - id: audio.tv_surround.eac3
+    priority: 4k_hdr_quality
+    any_device: [roku, fire_tv, apple_tv, smart_tv]
+    recommend:
+      audio_codec: eac3
+    reason: E-AC-3 is recommended for TV-oriented premium or surround workflows.
+    confidence: medium
+
+  - id: audio.default.aac_lc
+    default: true
+    recommend:
+      audio_codec: aac_lc
+    reason: AAC-LC is the default audio recommendation for broad streaming compatibility.
+    confidence: high
+
+rate_control_rules:
+  - id: rate_control.broadcast.cbr
+    use_case: broadcast
+    recommend:
+      rate_control: cbr
+    reason: Broadcast-like linear workflows often prefer CBR.
+    confidence: medium
+
+  - id: rate_control.live.capped_vbr
+    use_cases: [live, live_ott, low_latency]
+    recommend:
+      rate_control: capped_vbr
+    reason: Live workflows need predictable peaks and stable segment sizes.
+    confidence: medium
+
+  - id: rate_control.mobile.capped_vbr
+    use_case: mobile
+    recommend:
+      rate_control: capped_vbr
+    reason: Mobile ABR benefits from capped peaks and predictable segment sizes.
+    confidence: medium
+
+  - id: rate_control.vod.crf_or_two_pass
+    default: true
+    recommend:
+      rate_control: crf_or_two_pass
+    reason: VOD can trade encode time for quality using CRF, two-pass, or later per-title methods.
+    confidence: medium
+
+packaging_rules:
+  low_latency:
+    default_segment_duration: 2
+    segment_strategy: 1-2s segments or CMAF chunks with partial segment delivery
+    reason: Low-latency delivery benefits from short segments and CMAF chunk transfer when player/CDN support is available.
+  live:
+    default_segment_duration: 6
+    segment_strategy: standard live ABR segments with independent segments
+    reason: Live streaming usually balances latency and stability with 4-6 second independent segments.
+  live_ott:
+    default_segment_duration: 6
+    segment_strategy: standard live ABR segments with independent segments
+    reason: Live streaming usually balances latency and stability with 4-6 second independent segments.
+  broadcast:
+    default_segment_duration: 6
+    segment_strategy: standard live ABR segments with independent segments
+    reason: Live streaming usually balances latency and stability with 4-6 second independent segments.
+  vod:
+    default_segment_duration: 6
+    segment_strategy: VOD ABR segments with independent segments
+    reason: VOD can use 4-8 second segments for cache efficiency while preserving ABR switch points.
+  mobile:
+    default_segment_duration: 4
+    segment_strategy: mobile-friendly ABR segments with conservative peaks
+    reason: Mobile delivery benefits from predictable segment size and resilient ABR switching.
+  ott:
+    default_segment_duration: 6
+    segment_strategy: VOD ABR segments with independent segments
+    reason: OTT delivery usually benefits from independent ABR segments and CDN-friendly durations.
+
+gop_rules:
+  default:
+    candidates: [2, 3, 1]
+    require_segment_multiple: true
+    closed_gop: true
+    idr_aligned: true
+    reason: Use closed GOPs with aligned IDR frames so every rendition can switch cleanly at segment boundaries. The segment duration should be an integer multiple of the GOP duration.
+  low_latency:
+    candidates: [1, 2]
+  vod_long_segments:
+    min_segment_duration: 8
+    candidates: [2, 4, 1]
+
+ladder_selection_rules:
+  - id: ladder.select.mobile
+    use_case: mobile
+    preset: mobile
+    reason: Mobile workflows use a smaller starter ladder with conservative top bitrate.
+  - id: ladder.select.mobile_efficiency
+    priority: mobile_efficiency
+    preset: mobile
+    reason: Mobile-efficiency priority uses the mobile ladder preset.
+  - id: ladder.select.hevc
+    codec: hevc
+    source:
+      max_width: 1920
+    preset: hevc_1080p
+    reason: 1080p HEVC workflows use the bandwidth-saving HEVC 1080p starter ladder.
+  - id: ladder.select.hevc_4k
+    codec: hevc
+    preset: hevc_4k
+    reason: HEVC UHD workflows use the HEVC/4K starter ladder.
+  - id: ladder.select.4k_source
+    source:
+      min_width: 3840
+    preset: hevc_4k
+    reason: 4K sources use the HEVC/4K starter ladder.
+  - id: ladder.select.4k_hdr_priority
+    priority: 4k_hdr_quality
+    preset: hevc_4k
+    reason: 4K/HDR quality priority uses the HEVC/4K starter ladder.
+  - id: ladder.select.av1
+    codec: av1
+    preset: av1_vod
+    reason: AV1 workflows use the AV1 VOD efficiency ladder.
+  - id: ladder.select.h264_1080p
+    default: true
+    preset: h264_1080p
+    reason: H.264 1080p broad compatibility ladder is the default starter ladder.

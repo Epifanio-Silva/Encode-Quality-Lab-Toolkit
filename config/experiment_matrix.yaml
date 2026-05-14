@@ -1,0 +1,34 @@
+# Starter encode experiment matrix.
+# This is a planning scaffold for the next phase; experiment.py does not run
+# these encodes yet.
+
+encodes:
+  - id: h264_crf_20_medium
+    codec: h264
+    preset: medium
+    crf: 20
+    maxrate: 6000k
+    bufsize: 12000k
+
+  - id: h264_crf_22_slow
+    codec: h264
+    preset: slow
+    crf: 22
+    maxrate: 5000k
+    bufsize: 10000k
+
+  - id: hevc_crf_24_slow
+    codec: hevc
+    preset: slow
+    crf: 24
+    maxrate: 4200k
+    bufsize: 8400k
+
+metrics:
+  - vmaf
+  - ssimwave
+
+ranking:
+  primary: best_quality_under_bitrate
+  minimum_vmaf: 93
+  maximum_bitrate_kbps: 5000

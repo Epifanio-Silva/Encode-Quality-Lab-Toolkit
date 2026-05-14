@@ -1,0 +1,25 @@
+devices:
+  ios:
+    preferred_codecs: [h264, hevc]
+    notes: "H.264 for broad compatibility; HEVC for modern devices and HDR."
+  android:
+    preferred_codecs: [h264, hevc, av1]
+    notes: "Capabilities vary by device generation and SoC."
+  web:
+    preferred_codecs: [h264, av1]
+    notes: "Browser support varies by codec, DRM, and hardware decode path."
+  roku:
+    preferred_codecs: [h264, hevc]
+    notes: "Use H.264 fallback unless modern HEVC support is required."
+  fire_tv:
+    preferred_codecs: [h264, hevc]
+    notes: "Device generation matters for HEVC and HDR."
+  apple_tv:
+    preferred_codecs: [h264, hevc]
+    notes: "HEVC Main10 is common for Apple 4K/HDR workflows."
+  smart_tv:
+    preferred_codecs: [h264, hevc]
+    notes: "Model year and DRM stack strongly affect support."
+  legacy_stb:
+    preferred_codecs: [h264]
+    notes: "Favor conservative H.264 profiles and CBR/tight capped VBR."

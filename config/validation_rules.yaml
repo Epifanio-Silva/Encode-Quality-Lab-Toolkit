@@ -1,0 +1,81 @@
+policy_name: default_streaming_validation
+policy_version: 1
+
+source_integrity:
+  start_time_warn_seconds: 0.5
+  low_bppf_warn: 0.08
+  risky_containers:
+    - mpegts
+  risky_codecs:
+    - mpeg2video
+  decode_warning_patterns:
+    - severity: POOR
+      rule_id: source.decode.corrupt_frame
+      pattern: corrupt decoded frame
+      message: Source decode reported corrupt decoded frames.
+    - severity: POOR
+      rule_id: source.decode.concealment
+      pattern: concealing
+      message: Source decode required error concealment.
+    - severity: POOR
+      rule_id: source.decode.packet_corrupt
+      pattern: packet corrupt
+      message: Source decode reported corrupt packets.
+    - severity: POOR
+      rule_id: source.decode.missing_picture
+      pattern: missing picture
+      message: Source decode reported missing pictures.
+    - severity: POOR
+      rule_id: source.decode.decode_error
+      pattern: error while decoding
+      message: Source decode reported frame decode errors.
+    - severity: WARN
+      rule_id: source.timestamps.non_monotonic
+      pattern: non-monoton
+      message: Source decode reported non-monotonic timestamps.
+    - severity: WARN
+      rule_id: source.timestamps.discontinuity
+      pattern: dts discontinuity
+      message: Source decode reported DTS discontinuities.
+    - severity: WARN
+      rule_id: source.timestamps.invalid
+      pattern: invalid timestamps
+      message: Source decode reported invalid timestamps.
+
+precheck:
+  duration_tolerance_seconds: 0.25
+  fps_tolerance: 0.01
+  frame_count_tolerance: 5
+
+bitrate_accuracy:
+  enabled: true
+  warn_percent_below_target: 35
+  warn_percent_above_target: 20
+  fail_percent_above_target: 50
+  fail_percent_below_target: null
+  ignore_below_target_for_crf: true
+
+quality:
+  fail:
+    vmaf_mean_below: 80
+    vmaf_p1_below: 60
+    vmaf_p5_below: 70
+    low_frames_below_70_percent_above: 5
+  warn:
+    vmaf_mean_below: 90
+    vmaf_min_below: 80
+    vmaf_p1_below: 70
+    vmaf_p5_below: 80
+    mean_min_delta_above: 15
+  pass:
+    excellent_mean_at_least: 95
+    excellent_min_at_least: 90
+
+source_adjustment:
+  pass:
+    strict_min_vmaf_fail_below: 70
+  warn:
+    min_vmaf_is_diagnostic: true
+  poor:
+    min_vmaf_is_diagnostic: true
+    downgrade_min_only_failures_to_warn: true
