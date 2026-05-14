@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Validation Report</title>
+<style>body{font-family:Arial;margin:24px;background:#f7f7f7;color:#222}.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;margin-bottom:18px}table{width:100%;border-collapse:collapse;background:#fff}th{background:#333;color:#fff;padding:8px;text-align:left}td{border:1px solid #ddd;padding:8px;vertical-align:top}.PASS{background:#eaf8ee}.WARN{background:#fff8e1}.FAIL,.POOR{background:#fdebed}.badge{border-radius:999px;padding:3px 8px;font-weight:bold}.badge.PASS{background:#198754;color:#fff}.badge.WARN{background:#ffc107}.badge.FAIL,.badge.POOR{background:#dc3545;color:#fff}.chart{width:100%;max-width:1000px;border:1px solid #ddd}.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}.thumb img{width:100%;border:1px solid #ddd;border-radius:6px}</style></head><body>
+<h1>Validation Report</h1>
+<div class='card'><h2>Summary</h2>
+<p>Source: <code>Source/indy_race_20s.mov</code></p>
+<p>Profile: <code>reports/indy_race_20s.json</code></p>
+<p>Validation Policy: <code>default_streaming_validation</code> v1</p>
+<p>Metric Context: <code>original_source</code> / <code>native</code> / <code>source_to_rendition</code></p>
+<p>Metrics compare each encoded rendition against the original source after scaling the source to the rendition resolution.</p>
+<p>Source Integrity: <span class='badge PASS'>PASS</span> Source appears suitable as a quality reference.</p>
+<p>Strict metric thresholds are appropriate when the source is a clean reference.</p>
+<p>Total: 5 PASS: 4 WARN: 1 FAIL: 0</p>
+</div>
+<div class='card'><h2>Source Summary</h2><table><tr><th>Property</th><th>Value</th></tr>
+<tr><td>Container</td><td>mov,mp4,m4a,3gp,3g2,mj2</td></tr>
+<tr><td>Duration</td><td>20.003s</td></tr>
+<tr><td>Overall Bitrate</td><td>1831.422 Mbps</td></tr>
+<tr><td>Video Codec</td><td>prores</td></tr>
+<tr><td>Video Profile</td><td>HQ</td></tr>
+<tr><td>Resolution</td><td>3840x2160</td></tr>
+<tr><td>Frame Rate</td><td>60000/1001 (59.94)</td></tr>
+<tr><td>Scan Type</td><td>progressive</td></tr>
+<tr><td>Pixel Format</td><td>yuv422p10le</td></tr>
+<tr><td>Video Bitrate</td><td>1803.767 Mbps</td></tr>
+<tr><td>Color</td><td>bt2020nc / smpte2084 / bt2020</td></tr>
+<tr><td>Bit Depth</td><td>10</td></tr>
+<tr><td>Audio</td><td>1: pcm_s24le, 5.1(side), 192000 Hz, 27.648 Mbps</td></tr>
+</table></div>
+<div class='card'><h2>Source Integrity Findings</h2>
+<p>No source integrity issues were detected.</p>
+</div>
+<div class='card'><h2>Renditions</h2><table><tr><th>Rendition</th><th>Metric Mode</th><th>Scale Method</th><th>Quality</th><th>Precheck</th><th>Bitrate</th><th>Metric Space</th><th>Mean VMAF</th><th>P1 VMAF</th><th>P5 VMAF</th><th>Min VMAF</th><th>Frames &lt;70</th><th>Frames &lt;80</th><th>PSNR</th><th>SSIM</th><th>Worst Time</th><th>Notes</th></tr>
+<tr class='WARN'><td><code>3840x2160_20200k</code></td><td>native</td><td>source_to_rendition</td><td><span class='badge WARN'>WARN</span></td><td><span class='badge PASS'>PASS</span></td><td>PASS target=20200k actual=16006k delta=-20.8%</td><td>3840x2160</td><td>89.428</td><td>84.849</td><td>85.543</td><td>84.106</td><td>0</td><td>0</td><td>42.341</td><td>0.976853</td><td>00:13.597</td><td>Good; inspect visually</td></tr>
+<tr class='PASS'><td><code>2560x1440_12200k</code></td><td>native</td><td>source_to_rendition</td><td><span class='badge PASS'>PASS</span></td><td><span class='badge PASS'>PASS</span></td><td>PASS target=12200k actual=6933k delta=-43.2%</td><td>2560x1440</td><td>91.991</td><td>87.827</td><td>88.941</td><td>85.717</td><td>0</td><td>0</td><td>42.219</td><td>0.977614</td><td>00:13.597</td><td>Very good</td></tr>
+<tr class='PASS'><td><code>1920x1080_6800k</code></td><td>native</td><td>source_to_rendition</td><td><span class='badge PASS'>PASS</span></td><td><span class='badge PASS'>PASS</span></td><td>PASS target=6800k actual=4018k delta=-40.9%</td><td>1920x1080</td><td>93.290</td><td>88.785</td><td>90.916</td><td>88.047</td><td>0</td><td>0</td><td>42.267</td><td>0.978225</td><td>00:13.180</td><td>Very good</td></tr>
+<tr class='PASS'><td><code>1280x720_3800k</code></td><td>native</td><td>source_to_rendition</td><td><span class='badge PASS'>PASS</span></td><td><span class='badge PASS'>PASS</span></td><td>PASS target=3800k actual=1892k delta=-50.2%</td><td>1280x720</td><td>94.185</td><td>89.734</td><td>92.439</td><td>89.078</td><td>0</td><td>0</td><td>42.159</td><td>0.978390</td><td>00:13.497</td><td>Very good</td></tr>
+<tr class='PASS'><td><code>960x540_1900k</code></td><td>native</td><td>source_to_rendition</td><td><span class='badge PASS'>PASS</span></td><td><span class='badge PASS'>PASS</span></td><td>PASS target=1900k actual=1186k delta=-37.6%</td><td>960x540</td><td>94.545</td><td>90.518</td><td>93.034</td><td>89.960</td><td>0</td><td>0</td><td>41.977</td><td>0.978402</td><td>00:13.547</td><td>Very good</td></tr>
+</table></div>
+<div class='card'><h2>Charts and Worst Frames</h2>
+<h3>3840x2160_20200k</h3>
+<img class='chart' src='charts/3840x2160_20200k_vmaf.svg' alt='VMAF chart'>
+<div class='thumbs'>
+<div class='thumb'>
+<img src='thumbnails/3840x2160_20200k_frame_815_vmaf_84.106.jpg' alt='Worst frame'>
+<p>Frame 815<br>Time 00:13.597<br>VMAF 84.106</p></div>
+<div class='thumb'>
+<img src='thumbnails/3840x2160_20200k_frame_817_vmaf_84.206.jpg' alt='Worst frame'>
+<p>Frame 817<br>Time 00:13.630<br>VMAF 84.206</p></div>
+<div class='thumb'>
+<img src='thumbnails/3840x2160_20200k_frame_812_vmaf_84.327.jpg' alt='Worst frame'>
+<p>Frame 812<br>Time 00:13.547<br>VMAF 84.327</p></div>
+<div class='thumb'>
+<img src='thumbnails/3840x2160_20200k_frame_814_vmaf_84.339.jpg' alt='Worst frame'>
+<p>Frame 814<br>Time 00:13.580<br>VMAF 84.339</p></div>
+<div class='thumb'>
+<img src='thumbnails/3840x2160_20200k_frame_790_vmaf_84.413.jpg' alt='Worst frame'>
+<p>Frame 790<br>Time 00:13.180<br>VMAF 84.413</p></div>
+</div>
+<h3>2560x1440_12200k</h3>
+<img class='chart' src='charts/2560x1440_12200k_vmaf.svg' alt='VMAF chart'>
+<div class='thumbs'>
+<div class='thumb'>
+<img src='thumbnails/2560x1440_12200k_frame_815_vmaf_85.717.jpg' alt='Worst frame'>
+<p>Frame 815<br>Time 00:13.597<br>VMAF 85.717</p></div>
+<div class='thumb'>
+<img src='thumbnails/2560x1440_12200k_frame_814_vmaf_86.439.jpg' alt='Worst frame'>
+<p>Frame 814<br>Time 00:13.580<br>VMAF 86.439</p></div>
+<div class='thumb'>
+<img src='thumbnails/2560x1440_12200k_frame_816_vmaf_86.498.jpg' alt='Worst frame'>
+<p>Frame 816<br>Time 00:13.614<br>VMAF 86.498</p></div>
+<div class='thumb'>
+<img src='thumbnails/2560x1440_12200k_frame_790_vmaf_86.617.jpg' alt='Worst frame'>
+<p>Frame 790<br>Time 00:13.180<br>VMAF 86.617</p></div>
+<div class='thumb'>
+<img src='thumbnails/2560x1440_12200k_frame_817_vmaf_86.663.jpg' alt='Worst frame'>
+<p>Frame 817<br>Time 00:13.630<br>VMAF 86.663</p></div>
+</div>
+<h3>1920x1080_6800k</h3>
+<img class='chart' src='charts/1920x1080_6800k_vmaf.svg' alt='VMAF chart'>
+<div class='thumbs'>
+<div class='thumb'>
+<img src='thumbnails/1920x1080_6800k_frame_790_vmaf_88.047.jpg' alt='Worst frame'>
+<p>Frame 790<br>Time 00:13.180<br>VMAF 88.047</p></div>
+<div class='thumb'>
+<img src='thumbnails/1920x1080_6800k_frame_812_vmaf_88.103.jpg' alt='Worst frame'>
+<p>Frame 812<br>Time 00:13.547<br>VMAF 88.103</p></div>
+<div class='thumb'>
+<img src='thumbnails/1920x1080_6800k_frame_814_vmaf_88.264.jpg' alt='Worst frame'>
+<p>Frame 814<br>Time 00:13.580<br>VMAF 88.264</p></div>
+<div class='thumb'>
+<img src='thumbnails/1920x1080_6800k_frame_810_vmaf_88.363.jpg' alt='Worst frame'>
+<p>Frame 810<br>Time 00:13.514<br>VMAF 88.363</p></div>
+<div class='thumb'>
+<img src='thumbnails/1920x1080_6800k_frame_789_vmaf_88.469.jpg' alt='Worst frame'>
+<p>Frame 789<br>Time 00:13.163<br>VMAF 88.469</p></div>
+</div>
+<h3>1280x720_3800k</h3>
+<img class='chart' src='charts/1280x720_3800k_vmaf.svg' alt='VMAF chart'>
+<div class='thumbs'>
+<div class='thumb'>
+<img src='thumbnails/1280x720_3800k_frame_809_vmaf_89.078.jpg' alt='Worst frame'>
+<p>Frame 809<br>Time 00:13.497<br>VMAF 89.078</p></div>
+<div class='thumb'>
+<img src='thumbnails/1280x720_3800k_frame_812_vmaf_89.212.jpg' alt='Worst frame'>
+<p>Frame 812<br>Time 00:13.547<br>VMAF 89.212</p></div>
+<div class='thumb'>
+<img src='thumbnails/1280x720_3800k_frame_814_vmaf_89.351.jpg' alt='Worst frame'>
+<p>Frame 814<br>Time 00:13.580<br>VMAF 89.351</p></div>
+<div class='thumb'>
+<img src='thumbnails/1280x720_3800k_frame_810_vmaf_89.369.jpg' alt='Worst frame'>
+<p>Frame 810<br>Time 00:13.514<br>VMAF 89.369</p></div>
+<div class='thumb'>
+<img src='thumbnails/1280x720_3800k_frame_808_vmaf_89.479.jpg' alt='Worst frame'>
+<p>Frame 808<br>Time 00:13.480<br>VMAF 89.479</p></div>
+</div>
+<h3>960x540_1900k</h3>
+<img class='chart' src='charts/960x540_1900k_vmaf.svg' alt='VMAF chart'>
+<div class='thumbs'>
+<div class='thumb'>
+<img src='thumbnails/960x540_1900k_frame_812_vmaf_89.960.jpg' alt='Worst frame'>
+<p>Frame 812<br>Time 00:13.547<br>VMAF 89.960</p></div>
+<div class='thumb'>
+<img src='thumbnails/960x540_1900k_frame_814_vmaf_90.136.jpg' alt='Worst frame'>
+<p>Frame 814<br>Time 00:13.580<br>VMAF 90.136</p></div>
+<div class='thumb'>
+<img src='thumbnails/960x540_1900k_frame_811_vmaf_90.150.jpg' alt='Worst frame'>
+<p>Frame 811<br>Time 00:13.530<br>VMAF 90.150</p></div>
+<div class='thumb'>
+<img src='thumbnails/960x540_1900k_frame_803_vmaf_90.266.jpg' alt='Worst frame'>
+<p>Frame 803<br>Time 00:13.397<br>VMAF 90.266</p></div>
+<div class='thumb'>
+<img src='thumbnails/960x540_1900k_frame_808_vmaf_90.295.jpg' alt='Worst frame'>
+<p>Frame 808<br>Time 00:13.480<br>VMAF 90.295</p></div>
+</div>
+</div></body></html>

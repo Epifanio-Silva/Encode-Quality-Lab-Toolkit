@@ -90,12 +90,12 @@ The advisor uses PyYAML to load configurable recommendation policy from `config/
 
 ## Preview Reports
 
-After running the Indy sample workflow, open these generated HTML reports from the project directory:
+A curated sample report set is published through GitHub Pages:
 
-- [Validation HTML preview](validation/indy_race_20s_crf_capped/validation_report.html)
-- [Comparison HTML preview](comparisons/indy_race_20s/comparison_report.html)
+- [Validation HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/sample_reports/validation_report.html)
+- [Comparison HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/sample_reports/comparison_report.html)
 
-These preview reports are generated artifacts and are ignored by git by default. They are meant for local review; publish curated samples separately when you want stable public demo URLs.
+To publish these previews, enable GitHub Pages with `main` as the branch and `/docs` as the folder. Runtime workflow outputs under `validation/`, `comparisons/`, and `encodes/` remain ignored by git; only curated samples live under `docs/`.
 
 ## End-to-End Workflow
 
