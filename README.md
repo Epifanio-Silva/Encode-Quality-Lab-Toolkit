@@ -92,10 +92,10 @@ The advisor uses PyYAML to load configurable recommendation policy from `config/
 
 A curated sample report set is published through GitHub Pages:
 
-- [Validation HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/sample_reports/validation_report.html)
-- [Comparison HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/sample_reports/comparison_report.html)
+- [Validation HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/docs/sample_reports/validation_report.html)
+- [Comparison HTML preview](https://epifanio-silva.github.io/Encode-Quality-Lab-Toolkit/docs/sample_reports/comparison_report.html)
 
-To publish these previews, enable GitHub Pages with `main` as the branch and `/docs` as the folder. Runtime workflow outputs under `validation/`, `comparisons/`, and `encodes/` remain ignored by git; only curated samples live under `docs/`.
+To publish these previews with the URLs above, enable GitHub Pages with `main` as the branch and `/ (root)` as the folder. Runtime workflow outputs under `validation/`, `comparisons/`, and `encodes/` remain ignored by git; only curated samples live under `docs/`.
 
 ## End-to-End Workflow
 
