@@ -75,10 +75,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     recommendation = profile.get("recommendation", {})
+    source_info = profile.get("source", {})
     encodes_dir = output_dir / "encodes"
     planned_jobs = [
         build_encode_job(
             source=source_path,
+            source_info=source_info,
             candidate=candidate,
             recommendation=recommendation,
             encodes_dir=encodes_dir,
@@ -185,6 +187,7 @@ def validate_matrix(matrix: dict[str, Any]) -> None:
 def build_encode_job(
     *,
     source: Path,
+    source_info: dict[str, Any],
     candidate: dict[str, Any],
     recommendation: dict[str, Any],
     encodes_dir: Path,
@@ -193,14 +196,32 @@ def build_encode_job(
     encoder = CODEC_ENCODERS[codec]
     output = encodes_dir / f"{candidate['id']}.mp4"
     keyint = recommendation.get("keyframe_interval_frames")
+    gop_duration = recommendation.get("gop_duration")
     profile = candidate.get("profile") or ("high" if codec == "h264" else recommendation.get("profile"))
     pix_fmt = candidate.get("pix_fmt") or ("yuv420p" if profile != "main10" else "yuv420p10le")
+    audio_bitrate = candidate.get("audio_bitrate", "192k")
+    audio_sample_rate = int(candidate.get("audio_sample_rate", 48000))
+    audio_channels = int(candidate.get("audio_channels", 2))
+    color_mode = candidate.get("color_mode", "auto")
+    output_color = resolve_output_color(codec, profile, color_mode, source_info)
 
     command = [
         "ffmpeg",
         "-y",
         "-i",
         str(source),
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        "-sn",
+        "-dn",
+        "-map_metadata",
+        "-1",
+        "-vf",
+        build_video_filter(pix_fmt=pix_fmt, output_color=output_color),
+        "-af",
+        "asetpts=PTS-STARTPTS",
         "-c:v",
         encoder,
         "-preset",
@@ -216,17 +237,90 @@ def build_encode_job(
     if profile:
         command.extend(["-profile:v", str(profile)])
     command.extend(["-pix_fmt", pix_fmt])
+    if output_color in {"bt709", "tonemap_bt709"}:
+        command.extend(["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"])
 
-    if keyint:
-        command.extend(["-g", str(keyint), "-keyint_min", str(keyint), "-sc_threshold", "0"])
+    add_aligned_gop_options(command, codec, keyint, gop_duration)
 
-    command.extend(["-c:a", "aac", "-b:a", "192k", str(output)])
+    command.extend([
+        "-c:a",
+        "aac",
+        "-b:a",
+        str(audio_bitrate),
+        "-ar",
+        str(audio_sample_rate),
+        "-ac",
+        str(audio_channels),
+        "-movflags",
+        "+faststart",
+        str(output),
+    ])
 
     return {
         "id": candidate["id"],
         "output": str(output),
+        "audio_bitrate": audio_bitrate,
+        "audio_sample_rate": audio_sample_rate,
+        "audio_channels": audio_channels,
+        "color_mode": output_color,
         "command": command,
     }
+
+
+def resolve_output_color(codec: str, profile: str | None, color_mode: str, source_info: dict[str, Any]) -> str:
+    if color_mode != "auto":
+        return color_mode
+    if codec == "h264" and profile != "main10":
+        return "tonemap_bt709" if source_is_hdr(source_info) else "bt709"
+    return "preserve"
+
+
+def source_is_hdr(source_info: dict[str, Any]) -> bool:
+    video = source_info.get("video", {}) if isinstance(source_info, dict) else {}
+    transfer = str(video.get("color_transfer") or "").lower()
+    primaries = str(video.get("color_primaries") or "").lower()
+    color_space = str(video.get("color_space") or "").lower()
+    return transfer in {"smpte2084", "arib-std-b67"} or "2020" in primaries or "2020" in color_space
+
+
+def build_video_filter(*, pix_fmt: str, output_color: str) -> str:
+    if output_color == "tonemap_bt709":
+        return ",".join([
+            "setpts=PTS-STARTPTS",
+            "zscale=t=linear:npl=100",
+            "tonemap=tonemap=hable:desat=0",
+            "zscale=p=bt709:t=bt709:m=bt709",
+            f"format={pix_fmt}",
+        ])
+    return ",".join([
+        "setpts=PTS-STARTPTS",
+        f"format={pix_fmt}",
+    ])
+
+
+def add_aligned_gop_options(
+    command: list[str],
+    codec: str,
+    keyint: int | None,
+    gop_duration: int | float | str | None,
+) -> None:
+    if not keyint:
+        return
+    command.extend(["-g", str(keyint), "-keyint_min", str(keyint), "-sc_threshold", "0"])
+    if gop_duration:
+        command.extend(["-force_key_frames", f"expr:gte(t,n_forced*{gop_duration})"])
+    if codec == "hevc":
+        command.extend([
+            "-forced-idr",
+            "1",
+            "-x265-params",
+            f"keyint={keyint}:min-keyint={keyint}:scenecut=0:open-gop=0",
+        ])
+    elif codec == "h264":
+        command.extend([
+            "-x264-params",
+            f"keyint={keyint}:min-keyint={keyint}:scenecut=0:open-gop=0",
+        ])
 
 
 def write_plan(output_dir: Path, planned_jobs: list[dict[str, Any]], args: argparse.Namespace, recommendation: dict[str, Any]) -> None:
@@ -239,6 +333,11 @@ def write_plan(output_dir: Path, planned_jobs: list[dict[str, Any]], args: argpa
         "recommendation_summary": {
             "video_codec": recommendation.get("video_codec"),
             "profile": recommendation.get("profile"),
+            "audio_codec": recommendation.get("audio_codec"),
+            "audio_sample_rate": recommendation.get("audio_sample_rate"),
+            "audio_channels": recommendation.get("audio_channels"),
+            "color_mode": recommendation.get("color_mode"),
+            "output_color_space": recommendation.get("output_color_space"),
             "packaging": recommendation.get("packaging"),
             "segment_format": recommendation.get("segment_format"),
             "gop_duration": recommendation.get("gop_duration"),

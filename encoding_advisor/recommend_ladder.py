@@ -13,18 +13,20 @@ def recommend_ladder(
     use_case: str,
     priority: str,
     complexity: dict[str, float | str],
+    max_height: int | None = None,
 ) -> list[dict[str, str]]:
     selection_rule = _select_ladder_rule(source, codec, use_case, priority)
     preset_name = selection_rule["preset"]
     multiplier = float(complexity["bitrate_multiplier"])
     source_height = (source.get("video") or {}).get("height")
+    height_cap = min(h for h in [source_height, max_height] if h is not None) if (source_height or max_height) else None
 
     ladder = []
     for rendition in ladder_presets()["presets"][preset_name]:
         resolution = rendition["resolution"]
         bitrate = _parse_kbps(rendition["bitrate"])
         height = int(resolution.split("x")[1])
-        if source_height and height > source_height:
+        if height_cap and height > height_cap:
             continue
         adjusted = _round_bitrate(bitrate * multiplier)
         ladder.append(

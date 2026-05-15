@@ -90,6 +90,8 @@ audio_rules:
     priorities: [smallest_file_size, mobile_efficiency]
     recommend:
       audio_codec: he_aac
+      audio_sample_rate: 48000
+      audio_channels: 2
     reason: HE-AAC is recommended for low-bitrate mobile efficiency.
     confidence: medium
 
@@ -98,6 +100,8 @@ audio_rules:
     any_device: [roku, fire_tv, apple_tv, smart_tv]
     recommend:
       audio_codec: eac3
+      audio_sample_rate: 48000
+      audio_channels: 6
     reason: E-AC-3 is recommended for TV-oriented premium or surround workflows.
     confidence: medium
 
@@ -105,6 +109,8 @@ audio_rules:
     default: true
     recommend:
       audio_codec: aac_lc
+      audio_sample_rate: 48000
+      audio_channels: 2
     reason: AAC-LC is the default audio recommendation for broad streaming compatibility.
     confidence: high
 
@@ -199,6 +205,12 @@ ladder_selection_rules:
     codec: hevc
     preset: hevc_4k
     reason: HEVC UHD workflows use the HEVC/4K starter ladder.
+  - id: ladder.select.4k_source.compatibility
+    priority: compatibility
+    source:
+      min_width: 3840
+    preset: h264_1080p
+    reason: 4K source with compatibility priority uses the H.264 1080p ladder for broad device coverage.
   - id: ladder.select.4k_source
     source:
       min_width: 3840

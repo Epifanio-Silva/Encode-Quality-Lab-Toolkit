@@ -33,6 +33,8 @@ def recommend_codec(source: dict[str, Any], use_case: str, devices: list[str], p
         priority=priority,
     )
     audio_codec = audio_rule["recommend"]["audio_codec"]
+    audio_sample_rate = audio_rule["recommend"].get("audio_sample_rate", 48000)
+    audio_channels = audio_rule["recommend"].get("audio_channels", 2)
 
     rate_rule = first_matching_rule(
         rules["rate_control_rules"],
@@ -47,6 +49,8 @@ def recommend_codec(source: dict[str, Any], use_case: str, devices: list[str], p
         "video_codec": video_codec,
         "profile": profile,
         "audio_codec": audio_codec,
+        "audio_sample_rate": audio_sample_rate,
+        "audio_channels": audio_channels,
         "rate_control": rate_control,
         "rationale": rationale,
         "warnings": warnings,
@@ -54,6 +58,8 @@ def recommend_codec(source: dict[str, Any], use_case: str, devices: list[str], p
             "video_codec": decision("video_codec", video_codec, rationale, "advisor_policy", codec_rule["id"], codec_confidence),
             "profile": decision("profile", profile, f"{profile} profile selected for {video_codec}.", "advisor_policy", f"{codec_rule['id']}.profile", codec_confidence),
             "audio_codec": decision("audio_codec", audio_codec, audio_rule["reason"], "advisor_policy", audio_rule["id"], audio_rule["confidence"]),
+            "audio_sample_rate": decision("audio_sample_rate", audio_sample_rate, "48 kHz audio is the safest baseline for HLS/DASH packaging and device playback.", "advisor_policy", f"{audio_rule['id']}.sample_rate", audio_rule["confidence"]),
+            "audio_channels": decision("audio_channels", audio_channels, "Stereo is the broad compatibility baseline unless a premium surround profile is selected.", "advisor_policy", f"{audio_rule['id']}.channels", audio_rule["confidence"]),
             "rate_control": decision("rate_control", rate_control, rate_rule["reason"], "advisor_policy", rate_rule["id"], rate_rule["confidence"]),
         },
     }

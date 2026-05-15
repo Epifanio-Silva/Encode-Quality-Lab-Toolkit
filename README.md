@@ -565,6 +565,31 @@ By default, the encode phase auto-selects a profile from the advisor recommendat
   --encoder-profile crf_quality
 ```
 
+For broad HLS/DASH origin compatibility, the encoder normalizes generated renditions by default:
+
+```text
+video: H.264 compatibility outputs are BT.709 SDR; HDR/PQ sources are tonemapped in auto mode
+audio: AAC-LC, 48 kHz, stereo
+tracks: first video + optional first audio only; subtitles/data tracks and source metadata are removed
+gop: closed, aligned keyframes from the advisor recommendation
+container: MP4 with faststart metadata
+```
+
+Useful overrides:
+
+```bash
+./eqlab encode \
+  --input source/indy_race_20s.mov \
+  --profile reports/indy_race_20s.json \
+  --output-dir encodes/indy_race_20s_origin_ready \
+  --encoder-profile crf_quality \
+  --audio-sample-rate 48000 \
+  --audio-channels 2 \
+  --color-mode auto
+```
+
+Use `--color-mode preserve` when you are intentionally making HDR renditions instead of a broad SDR compatibility ladder.
+
 Current encoder profiles:
 
 | Profile | Intended use |

@@ -65,6 +65,8 @@ class Report:
                 f"- Video codec: `{rec['video_codec']}`",
                 f"- Profile: `{rec['profile']}`",
                 f"- Audio codec: `{rec['audio_codec']}`",
+                f"- Audio target: `{rec.get('audio_sample_rate', 'unknown')}` Hz, `{rec.get('audio_channels', 'unknown')}` channels",
+                f"- Color target: `{rec.get('output_color_space', 'source')}` via `{rec.get('color_mode', 'preserve')}`",
                 f"- Packaging: `{rec['packaging']}`",
                 f"- Segment format: `{rec.get('segment_format', 'unknown')}`",
                 f"- Rate control: `{rec['rate_control']}`",

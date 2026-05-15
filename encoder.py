@@ -107,6 +107,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--preset", help="Override encoder preset for every rendition.")
     parser.add_argument("--crf", type=int, help="Override CRF for every rendition.")
     parser.add_argument("--audio-bitrate", default="192k", help="Audio bitrate for encoded outputs.")
+    parser.add_argument("--audio-sample-rate", type=int, default=48000, help="Normalize encoded audio to this sample rate.")
+    parser.add_argument("--audio-channels", type=int, default=2, help="Normalize encoded audio to this channel count.")
+    parser.add_argument(
+        "--color-mode",
+        choices=["auto", "preserve", "bt709", "tonemap_bt709"],
+        default="auto",
+        help="Output color handling. Auto tonemaps HDR/PQ sources to BT.709 for H.264 compatibility outputs.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print planned FFmpeg commands without encoding.")
     parser.add_argument("--run", action="store_true", help="Execute planned FFmpeg commands.")
     return parser
@@ -149,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Source frame rate: {source_fps}")
     jobs = build_ladder_jobs(
         source=source,
+        source_info=profile.get("source", {}),
         recommendation=recommendation,
         output_dir=output_dir / "renditions",
         encoder_profile_name=selected_profile_name,
@@ -156,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
         preset_override=args.preset,
         crf_override=args.crf,
         audio_bitrate=args.audio_bitrate,
+        audio_sample_rate=args.audio_sample_rate,
+        audio_channels=args.audio_channels,
+        color_mode=args.color_mode,
         source_fps=source_fps,
     )
 
@@ -194,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
 def build_ladder_jobs(
     *,
     source: Path,
+    source_info: dict[str, Any],
     recommendation: dict[str, Any],
     output_dir: Path,
     encoder_profile_name: str,
@@ -201,12 +214,16 @@ def build_ladder_jobs(
     preset_override: str | None,
     crf_override: int | None,
     audio_bitrate: str,
+    audio_sample_rate: int,
+    audio_channels: int,
+    color_mode: str,
     source_fps: str | None = None,
 ) -> list[dict[str, Any]]:
     codec = recommendation["video_codec"]
     encoder = CODEC_ENCODERS[codec]
     profile = recommendation.get("profile")
     keyint = recommendation.get("keyframe_interval_frames")
+    gop_duration = recommendation.get("gop_duration")
     ladder = recommendation.get("ladder") or []
     mode = encoder_profile.get("mode", "crf")
     preset = preset_override or codec_value(encoder_profile.get("preset", {}), codec, DEFAULT_PRESET.get(codec, "medium"))
@@ -216,6 +233,7 @@ def build_ladder_jobs(
     minrate_multiplier = encoder_profile.get("minrate_multiplier")
     bufsize_multiplier = float(encoder_profile.get("bufsize_multiplier", 2.0))
     pix_fmt = "yuv420p10le" if profile == "main10" else "yuv420p"
+    output_color = resolve_output_color(codec, profile, color_mode, source_info)
 
     jobs = []
     for rendition in ladder:
@@ -228,14 +246,27 @@ def build_ladder_jobs(
         maxrate = f"{round(target_kbps * maxrate_multiplier)}k"
         bufsize = f"{round(target_kbps * bufsize_multiplier)}k"
 
-        fps_filter = f"fps={source_fps}," if source_fps else ""
+        vf = build_video_filter(
+            scale_size=scale_size,
+            pix_fmt=pix_fmt,
+            source_fps=source_fps,
+            output_color=output_color,
+        )
         command = [
             "ffmpeg",
             "-y",
             "-i",
             str(source),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0?",
+            "-sn",
+            "-dn",
+            "-map_metadata",
+            "-1",
             "-vf",
-            f"{fps_filter}setpts=PTS-STARTPTS,scale={scale_size}:flags=lanczos",
+            vf,
             "-af",
             "asetpts=PTS-STARTPTS",
             "-c:v",
@@ -253,11 +284,24 @@ def build_ladder_jobs(
         if profile:
             command.extend(["-profile:v", profile])
         command.extend(["-pix_fmt", pix_fmt])
-        if keyint:
-            command.extend(["-g", str(keyint), "-keyint_min", str(keyint), "-sc_threshold", "0"])
+        if output_color in {"bt709", "tonemap_bt709"}:
+            command.extend(["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"])
+        add_aligned_gop_options(command, codec, keyint, gop_duration)
         if source_fps:
             command.extend(["-r", source_fps])
-        command.extend(["-c:a", "aac", "-b:a", audio_bitrate, str(output)])
+        command.extend([
+            "-c:a",
+            "aac",
+            "-b:a",
+            audio_bitrate,
+            "-ar",
+            str(audio_sample_rate),
+            "-ac",
+            str(audio_channels),
+            "-movflags",
+            "+faststart",
+            str(output),
+        ])
 
         jobs.append(
             {
@@ -270,11 +314,83 @@ def build_ladder_jobs(
                 "crf": crf if mode == "crf" else None,
                 "maxrate": maxrate,
                 "bufsize": bufsize,
+                "audio_bitrate": audio_bitrate,
+                "audio_sample_rate": audio_sample_rate,
+                "audio_channels": audio_channels,
+                "color_mode": output_color,
                 "output": str(output),
                 "command": command,
             }
         )
     return jobs
+
+
+def resolve_output_color(codec: str, profile: str | None, color_mode: str, source_info: dict[str, Any]) -> str:
+    if color_mode != "auto":
+        return color_mode
+    if codec == "h264" and profile != "main10":
+        return "tonemap_bt709" if source_is_hdr(source_info) else "bt709"
+    return "preserve"
+
+
+def source_is_hdr(source_info: dict[str, Any]) -> bool:
+    video = source_info.get("video", {}) if isinstance(source_info, dict) else {}
+    transfer = str(video.get("color_transfer") or "").lower()
+    primaries = str(video.get("color_primaries") or "").lower()
+    color_space = str(video.get("color_space") or "").lower()
+    return transfer in {"smpte2084", "arib-std-b67"} or "2020" in primaries or "2020" in color_space
+
+
+def build_video_filter(
+    *,
+    scale_size: str,
+    pix_fmt: str,
+    source_fps: str | None,
+    output_color: str,
+) -> str:
+    filters = []
+    if source_fps:
+        filters.append(f"fps={source_fps}")
+    filters.append("setpts=PTS-STARTPTS")
+    if output_color == "tonemap_bt709":
+        filters.extend([
+            "zscale=t=linear:npl=100",
+            "tonemap=tonemap=hable:desat=0",
+            "zscale=p=bt709:t=bt709:m=bt709",
+            f"format={pix_fmt}",
+            f"scale={scale_size}:flags=lanczos",
+        ])
+    else:
+        filters.extend([
+            f"scale={scale_size}:flags=lanczos",
+            f"format={pix_fmt}",
+        ])
+    return ",".join(filters)
+
+
+def add_aligned_gop_options(
+    command: list[str],
+    codec: str,
+    keyint: int | None,
+    gop_duration: int | float | str | None,
+) -> None:
+    if not keyint:
+        return
+    command.extend(["-g", str(keyint), "-keyint_min", str(keyint), "-sc_threshold", "0"])
+    if gop_duration:
+        command.extend(["-force_key_frames", f"expr:gte(t,n_forced*{gop_duration})"])
+    if codec == "hevc":
+        command.extend([
+            "-forced-idr",
+            "1",
+            "-x265-params",
+            f"keyint={keyint}:min-keyint={keyint}:scenecut=0:open-gop=0",
+        ])
+    elif codec == "h264":
+        command.extend([
+            "-x264-params",
+            f"keyint={keyint}:min-keyint={keyint}:scenecut=0:open-gop=0",
+        ])
 
 
 def codec_value(values: dict[str, Any], codec: str, default: Any = None) -> Any:
@@ -299,6 +415,11 @@ def write_plan(
         "recommendation_summary": {
             "video_codec": recommendation.get("video_codec"),
             "profile": recommendation.get("profile"),
+            "audio_codec": recommendation.get("audio_codec"),
+            "audio_sample_rate": recommendation.get("audio_sample_rate"),
+            "audio_channels": recommendation.get("audio_channels"),
+            "color_mode": recommendation.get("color_mode"),
+            "output_color_space": recommendation.get("output_color_space"),
             "packaging": recommendation.get("packaging"),
             "segment_format": recommendation.get("segment_format"),
             "gop_duration": recommendation.get("gop_duration"),

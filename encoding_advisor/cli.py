@@ -6,6 +6,7 @@ from typing import Any
 
 from .classify_content import normalize_complexity
 from .config_loader import ladder_presets
+from .media_properties import is_hdr
 from .probe_source import ProbeError, probe_source
 from .recommend_codec import recommend_codec
 from .recommend_gop import recommend_gop
@@ -100,6 +101,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Continue with a generic recommendation if --input cannot be probed.",
     )
+    parser.add_argument(
+        "--max-height",
+        type=int,
+        default=None,
+        help="Cap the output ladder to this maximum rendition height in pixels (e.g. 1080).",
+    )
     return parser
 
 
@@ -140,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         use_case=args.use_case,
         priority=args.priority,
         complexity=complexity,
+        max_height=args.max_height,
     )
     ladder_decision = recommend_ladder_decision(
         ladder=ladder,
@@ -149,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         priority=args.priority,
         complexity=complexity,
     )
+    video_color = recommend_output_color(source, codec["video_codec"], codec["profile"], args.priority)
 
     recommendation: dict[str, Any] = {
         "use_case": args.use_case,
@@ -158,6 +167,10 @@ def main(argv: list[str] | None = None) -> int:
         "video_codec": codec["video_codec"],
         "profile": codec["profile"],
         "audio_codec": codec["audio_codec"],
+        "audio_sample_rate": codec["audio_sample_rate"],
+        "audio_channels": codec["audio_channels"],
+        "color_mode": video_color["color_mode"],
+        "output_color_space": video_color["output_color_space"],
         "packaging": packaging["packaging"],
         "segment_format": packaging["segment_format"],
         "rate_control": codec["rate_control"],
@@ -176,6 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         "decisions": {
             **codec["decisions"],
+            **video_color["decisions"],
             **packaging["decisions"],
             **gop["decisions"],
             "ladder": ladder_decision,
@@ -202,6 +216,44 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def recommend_output_color(source: dict[str, Any], video_codec: str, profile: str | None, priority: str) -> dict[str, Any]:
+    source_video = source.get("video", {}) if isinstance(source, dict) else {}
+    source_hdr = is_hdr(source_video)
+    if video_codec == "h264" and profile != "main10":
+        color_mode = "tonemap_bt709" if source_hdr else "bt709"
+        reason = "H.264 broad compatibility outputs should be SDR BT.709; HDR/PQ sources need tonemapping."
+    elif priority == "4k_hdr_quality" and source_hdr:
+        color_mode = "preserve"
+        reason = "HDR quality priority preserves the source color volume for an HDR-capable workflow."
+    else:
+        color_mode = "preserve"
+        reason = "Source color is preserved for this codec/profile."
+
+    output_color_space = "bt709" if color_mode in {"bt709", "tonemap_bt709"} else "source"
+    return {
+        "color_mode": color_mode,
+        "output_color_space": output_color_space,
+        "decisions": {
+            "color_mode": {
+                "name": "color_mode",
+                "value": color_mode,
+                "reason": reason,
+                "basis": "advisor_policy",
+                "rule_id": "color.compatibility.bt709" if output_color_space == "bt709" else "color.preserve",
+                "confidence": "high" if output_color_space == "bt709" else "medium",
+            },
+            "output_color_space": {
+                "name": "output_color_space",
+                "value": output_color_space,
+                "reason": reason,
+                "basis": "advisor_policy",
+                "rule_id": "color.output_space",
+                "confidence": "high" if output_color_space == "bt709" else "medium",
+            },
+        },
+    }
+
+
 def print_summary(source: dict[str, Any], recommendation: dict[str, Any], paths: dict[str, Path]) -> None:
     video = source.get("video") or {}
     source_line = "not probed"
@@ -211,6 +263,8 @@ def print_summary(source: dict[str, Any], recommendation: dict[str, Any], paths:
     print("Encode Quality Lab Toolkit - Advisor")
     print(f"Source: {source_line}")
     print(f"Codec: {recommendation['video_codec']} / {recommendation['profile']}")
+    print(f"Audio: {recommendation['audio_codec']} @ {recommendation.get('audio_sample_rate', 'unknown')} Hz, {recommendation.get('audio_channels', 'unknown')} ch")
+    print(f"Color: {recommendation.get('output_color_space', 'source')} ({recommendation.get('color_mode', 'preserve')})")
     print(f"Rate control: {recommendation['rate_control']}")
     print(f"Packaging: {recommendation['packaging']}")
     if recommendation["segment_duration"] is None:
