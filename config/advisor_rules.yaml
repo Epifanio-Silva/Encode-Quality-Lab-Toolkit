@@ -95,15 +95,14 @@ audio_rules:
     reason: HE-AAC is recommended for low-bitrate mobile efficiency.
     confidence: medium
 
-  - id: audio.tv_surround.eac3
+  - id: audio.4k_hdr_quality.aac_lc
     priority: 4k_hdr_quality
-    any_device: [roku, fire_tv, apple_tv, smart_tv]
     recommend:
-      audio_codec: eac3
+      audio_codec: aac_lc
       audio_sample_rate: 48000
-      audio_channels: 6
-    reason: E-AC-3 is recommended for TV-oriented premium or surround workflows.
-    confidence: medium
+      audio_channels: 2
+    reason: AAC-LC stereo is the currently supported encoder output for UHD/HDR experiments; add surround rules after E-AC-3 encoding is implemented.
+    confidence: high
 
   - id: audio.default.aac_lc
     default: true

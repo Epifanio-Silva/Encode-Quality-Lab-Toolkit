@@ -13,7 +13,7 @@ Use `./eqlab` as the local command interface from the project directory. The pha
 ## What It Recommends
 
 - Video codec: H.264, HEVC, or AV1
-- Audio codec: AAC-LC, HE-AAC, AC-3, or E-AC-3 guidance
+- Audio codec: AAC-LC guidance for current encoder outputs; HE-AAC, AC-3, and E-AC-3 are future policy areas once encoder support is added
 - Rate control mode for live, VOD, mobile, low-latency, and broadcast-like workflows
 - GOP duration and keyframe interval
 - Segment duration guidance
@@ -296,7 +296,7 @@ For a 4K/HDR sports-oriented workflow, use:
   --report-name indy_race_20s
 ```
 
-This selects a UHD/HDR-oriented HEVC ladder when the source and device targets support it.
+This selects a UHD/HDR-oriented HEVC ladder when the source and device targets support it. For Apple-oriented HDR sources above 30 fps, the advisor caps the first-pass test encode to `30000/1001` fps and recalculates the GOP keyframe interval. This mirrors the practical Apple HLS authoring path we use to prove native Safari playback before attempting higher-frame-rate HDR ladders.
 
 ## CLI Option Legend
 
@@ -392,7 +392,7 @@ Allowed values:
 | `smallest_file_size` | Favor aggressive compression; can select AV1 for VOD |
 | `mobile_efficiency` | Favor mobile-friendly codec and bitrate choices |
 | `bandwidth_savings` | Favor HEVC for bandwidth reduction when legacy playback is not required |
-| `4k_hdr_quality` | Favor HEVC/Main10-style UHD/HDR decisions |
+| `4k_hdr_quality` | Favor HEVC/Main10-style UHD/HDR decisions; Apple HDR targets above 30 fps use a first-pass 29.97 fps cap |
 
 `--segment-duration`
 
@@ -570,10 +570,24 @@ For broad HLS/DASH origin compatibility, the encoder normalizes generated rendit
 ```text
 video: H.264 compatibility outputs are BT.709 SDR; HDR/PQ sources are tonemapped in auto mode
 audio: AAC-LC, 48 kHz, stereo
+audio language: first encoded audio stream is tagged `eng` by default
+frame rate: advisor target is used; Apple-oriented HEVC HDR sources above 30 fps are capped to 30000/1001 fps for first-pass Safari validation
 tracks: first video + optional first audio only; subtitles/data tracks and source metadata are removed
 gop: closed, aligned keyframes from the advisor recommendation
+aspect: advisor-selected aspect policy; non-standard source geometry defaults to `fit`
 container: MP4 with faststart metadata
 ```
+
+The current encoder always writes AAC audio (`-c:a aac`). Advisor recommendations therefore stay on AAC-LC until additional encoder paths, such as E-AC-3 surround, are implemented.
+
+Aspect policy controls how source geometry is mapped into the recommended ladder resolutions:
+
+| Policy | Behavior | Best use |
+| --- | --- | --- |
+| `fit` | Preserve the full source image and pad to the ladder frame size | Default for origin-ready HLS/DASH/CMAF ladders |
+| `fill` | Preserve aspect ratio and crop to fill the ladder frame size | Full-frame presentation when cropping is acceptable |
+| `stretch` | Force the image into the ladder frame size | Diagnostics only, because it distorts geometry |
+| `native` | Preserve source aspect ratio inside the target box without padding | Experiments where exact ladder dimensions are not required |
 
 Useful overrides:
 
@@ -585,10 +599,21 @@ Useful overrides:
   --encoder-profile crf_quality \
   --audio-sample-rate 48000 \
   --audio-channels 2 \
+  --audio-language eng \
+  --aspect-policy fit \
   --color-mode auto
 ```
 
 Use `--color-mode preserve` when you are intentionally making HDR renditions instead of a broad SDR compatibility ladder.
+
+Encoded rendition filenames are prefixed with the advisor report filename stem by default. For example, `--profile reports/indy_race_4k_hdr_30.json` writes renditions like:
+
+```text
+indy_race_4k_hdr_30_3840x2160_20200k.mp4
+indy_race_4k_hdr_30_1920x1080_6800k.mp4
+```
+
+Use `--output-prefix` when you want a shorter or different ingest prefix.
 
 Current encoder profiles:
 
@@ -619,6 +644,7 @@ Run encodes:
   --input source/indy_race_20s.mov \
   --profile reports/indy_race_20s.json \
   --output-dir encodes/indy_race_20s_crf_capped \
+  --output-prefix indy_race \
   --run
 ```
 

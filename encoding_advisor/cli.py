@@ -8,7 +8,9 @@ from .classify_content import normalize_complexity
 from .config_loader import ladder_presets
 from .media_properties import is_hdr
 from .probe_source import ProbeError, probe_source
+from .recommend_aspect import recommend_aspect_policy
 from .recommend_codec import recommend_codec
+from .recommend_frame_rate import recommend_frame_rate
 from .recommend_gop import recommend_gop
 from .recommend_ladder import recommend_ladder, recommend_ladder_decision
 from .recommend_packaging import recommend_packaging
@@ -136,8 +138,14 @@ def main(argv: list[str] | None = None) -> int:
         devices=args.devices,
         priority=args.priority,
     )
+    frame_rate = recommend_frame_rate(
+        source=source,
+        video_codec=codec["video_codec"],
+        priority=args.priority,
+        devices=args.devices,
+    )
     gop = recommend_gop(
-        frame_rate=source.get("video", {}).get("frame_rate"),
+        frame_rate=frame_rate.get("target_frame_rate"),
         segment_duration=packaging["segment_duration"],
         use_case=args.use_case,
     )
@@ -158,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         complexity=complexity,
     )
     video_color = recommend_output_color(source, codec["video_codec"], codec["profile"], args.priority)
+    aspect = recommend_aspect_policy(source, ladder)
 
     recommendation: dict[str, Any] = {
         "use_case": args.use_case,
@@ -169,10 +178,16 @@ def main(argv: list[str] | None = None) -> int:
         "audio_codec": codec["audio_codec"],
         "audio_sample_rate": codec["audio_sample_rate"],
         "audio_channels": codec["audio_channels"],
+        "frame_rate_mode": frame_rate["frame_rate_mode"],
+        "target_frame_rate": frame_rate["target_frame_rate"],
+        "target_frame_rate_raw": frame_rate["target_frame_rate_raw"],
+        "source_frame_rate": frame_rate["source_frame_rate"],
+        "source_frame_rate_raw": frame_rate["source_frame_rate_raw"],
         "color_mode": video_color["color_mode"],
         "output_color_space": video_color["output_color_space"],
         "packaging": packaging["packaging"],
         "segment_format": packaging["segment_format"],
+        "aspect_policy": aspect["aspect_policy"],
         "rate_control": codec["rate_control"],
         "segment_duration": packaging["segment_duration"],
         "segment_strategy": packaging["segment_strategy"],
@@ -186,12 +201,15 @@ def main(argv: list[str] | None = None) -> int:
             "packaging": packaging["rationale"],
             "gop": gop["rationale"],
             "ladder": "Starter ladder adjusted for content complexity and capped to the source resolution when known.",
+            "aspect": aspect["rationale"],
         },
         "decisions": {
             **codec["decisions"],
+            **frame_rate["decisions"],
             **video_color["decisions"],
             **packaging["decisions"],
             **gop["decisions"],
+            **aspect["decisions"],
             "ladder": ladder_decision,
         },
     }
@@ -200,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     if source.get("probe_error"):
         warnings.append(source["probe_error"])
     warnings.extend(gop["warnings"])
+    warnings.extend(frame_rate["warnings"])
     warnings.extend(codec["warnings"])
     warnings.extend(validate_profile(source, recommendation))
     recommendation["warnings"] = warnings
@@ -264,7 +283,9 @@ def print_summary(source: dict[str, Any], recommendation: dict[str, Any], paths:
     print(f"Source: {source_line}")
     print(f"Codec: {recommendation['video_codec']} / {recommendation['profile']}")
     print(f"Audio: {recommendation['audio_codec']} @ {recommendation.get('audio_sample_rate', 'unknown')} Hz, {recommendation.get('audio_channels', 'unknown')} ch")
+    print(f"Frame rate: {recommendation.get('target_frame_rate_raw') or recommendation.get('target_frame_rate') or 'source'} ({recommendation.get('frame_rate_mode', 'source')})")
     print(f"Color: {recommendation.get('output_color_space', 'source')} ({recommendation.get('color_mode', 'preserve')})")
+    print(f"Aspect policy: {recommendation.get('aspect_policy', 'fit')}")
     print(f"Rate control: {recommendation['rate_control']}")
     print(f"Packaging: {recommendation['packaging']}")
     if recommendation["segment_duration"] is None:

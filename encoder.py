@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -27,6 +28,13 @@ def probe_source_fps(source: Path) -> str | None:
         return fps if fps and fps != "0/0" else None
     except Exception:
         return None
+
+
+def recommendation_frame_rate(recommendation: dict[str, Any], source_fps: str | None) -> str | None:
+    target = recommendation.get("target_frame_rate_raw") or recommendation.get("target_frame_rate")
+    if target:
+        return str(target)
+    return source_fps
 
 
 DEFAULT_CRF = {
@@ -103,12 +111,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", default="encodes", help="Directory for encoded renditions, logs, and plan/results files.")
     parser.add_argument("--encoder-profiles", default="config/encoder_profiles.yaml", help="Encoder profiles YAML file.")
     parser.add_argument("--encoder-profile", help="Named encoder profile to use. Defaults to advisor-based auto selection.")
+    parser.add_argument("--output-prefix", help="Prefix encoded rendition filenames. Defaults to the advisor report filename stem.")
     parser.add_argument("--list-encoder-profiles", action="store_true", help="List available encoder profiles and exit.")
     parser.add_argument("--preset", help="Override encoder preset for every rendition.")
     parser.add_argument("--crf", type=int, help="Override CRF for every rendition.")
     parser.add_argument("--audio-bitrate", default="192k", help="Audio bitrate for encoded outputs.")
     parser.add_argument("--audio-sample-rate", type=int, default=48000, help="Normalize encoded audio to this sample rate.")
     parser.add_argument("--audio-channels", type=int, default=2, help="Normalize encoded audio to this channel count.")
+    parser.add_argument("--audio-language", default="eng", help="ISO 639 audio language tag for the first encoded audio stream.")
+    parser.add_argument(
+        "--aspect-policy",
+        choices=["fit", "fill", "stretch", "native"],
+        help="Override advisor aspect handling. fit pads, fill crops, stretch distorts, native preserves source aspect inside the target box without padding.",
+    )
     parser.add_argument(
         "--color-mode",
         choices=["auto", "preserve", "bt709", "tonemap_bt709"],
@@ -155,6 +170,10 @@ def main(argv: list[str] | None = None) -> int:
     source_fps = probe_source_fps(source)
     if source_fps:
         print(f"Source frame rate: {source_fps}")
+    target_fps = recommendation_frame_rate(recommendation, source_fps)
+    if target_fps and target_fps != source_fps:
+        print(f"Target frame rate: {target_fps} ({recommendation.get('frame_rate_mode', 'advisor')})")
+    output_prefix = resolve_output_prefix(args.output_prefix, profile_path)
     jobs = build_ladder_jobs(
         source=source,
         source_info=profile.get("source", {}),
@@ -167,8 +186,11 @@ def main(argv: list[str] | None = None) -> int:
         audio_bitrate=args.audio_bitrate,
         audio_sample_rate=args.audio_sample_rate,
         audio_channels=args.audio_channels,
+        audio_language=args.audio_language,
+        aspect_policy=args.aspect_policy,
         color_mode=args.color_mode,
-        source_fps=source_fps,
+        source_fps=target_fps,
+        output_prefix=output_prefix,
     )
 
     print("Encoding Profile Encoder")
@@ -177,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Output directory: {output_dir}")
     print(f"Codec/profile: {recommendation.get('video_codec')} / {recommendation.get('profile')}")
     print(f"Encoder profile: {selected_profile_name} ({selected_profile.get('mode', 'crf')})")
+    print(f"Aspect policy: {args.aspect_policy or recommendation.get('aspect_policy', 'fit')}")
+    print(f"Output prefix: {output_prefix or '(none)'}")
     print(f"Renditions: {len(jobs)}")
     print("Mode: run encodes" if args.run else "Mode: dry run only")
     print()
@@ -216,8 +240,11 @@ def build_ladder_jobs(
     audio_bitrate: str,
     audio_sample_rate: int,
     audio_channels: int,
+    audio_language: str,
+    aspect_policy: str | None,
     color_mode: str,
     source_fps: str | None = None,
+    output_prefix: str | None = None,
 ) -> list[dict[str, Any]]:
     codec = recommendation["video_codec"]
     encoder = CODEC_ENCODERS[codec]
@@ -234,20 +261,24 @@ def build_ladder_jobs(
     bufsize_multiplier = float(encoder_profile.get("bufsize_multiplier", 2.0))
     pix_fmt = "yuv420p10le" if profile == "main10" else "yuv420p"
     output_color = resolve_output_color(codec, profile, color_mode, source_info)
+    resolved_aspect_policy = aspect_policy or recommendation.get("aspect_policy") or "fit"
 
     jobs = []
     for rendition in ladder:
         resolution = rendition["resolution"]
-        scale_size = resolution.replace("x", ":")
+        target_width, target_height = parse_resolution(resolution)
         bitrate = rendition["bitrate"]
-        rendition_id = f"{resolution}_{bitrate}".replace("x", "x").replace("k", "k")
+        rendition_name = f"{resolution}_{bitrate}".replace("x", "x").replace("k", "k")
+        rendition_id = f"{output_prefix}_{rendition_name}" if output_prefix else rendition_name
         output = output_dir / f"{rendition_id}.mp4"
         target_kbps = parse_bitrate_kbps(bitrate)
         maxrate = f"{round(target_kbps * maxrate_multiplier)}k"
         bufsize = f"{round(target_kbps * bufsize_multiplier)}k"
 
         vf = build_video_filter(
-            scale_size=scale_size,
+            target_width=target_width,
+            target_height=target_height,
+            aspect_policy=resolved_aspect_policy,
             pix_fmt=pix_fmt,
             source_fps=source_fps,
             output_color=output_color,
@@ -284,6 +315,8 @@ def build_ladder_jobs(
         if profile:
             command.extend(["-profile:v", profile])
         command.extend(["-pix_fmt", pix_fmt])
+        if codec == "hevc":
+            command.extend(["-tag:v", "hvc1"])
         if output_color in {"bt709", "tonemap_bt709"}:
             command.extend(["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"])
         add_aligned_gop_options(command, codec, keyint, gop_duration)
@@ -298,6 +331,8 @@ def build_ladder_jobs(
             str(audio_sample_rate),
             "-ac",
             str(audio_channels),
+            "-metadata:s:a:0",
+            f"language={audio_language}",
             "-movflags",
             "+faststart",
             str(output),
@@ -317,6 +352,8 @@ def build_ladder_jobs(
                 "audio_bitrate": audio_bitrate,
                 "audio_sample_rate": audio_sample_rate,
                 "audio_channels": audio_channels,
+                "audio_language": audio_language,
+                "aspect_policy": resolved_aspect_policy,
                 "color_mode": output_color,
                 "output": str(output),
                 "command": command,
@@ -343,7 +380,9 @@ def source_is_hdr(source_info: dict[str, Any]) -> bool:
 
 def build_video_filter(
     *,
-    scale_size: str,
+    target_width: int,
+    target_height: int,
+    aspect_policy: str,
     pix_fmt: str,
     source_fps: str | None,
     output_color: str,
@@ -358,14 +397,52 @@ def build_video_filter(
             "tonemap=tonemap=hable:desat=0",
             "zscale=p=bt709:t=bt709:m=bt709",
             f"format={pix_fmt}",
-            f"scale={scale_size}:flags=lanczos",
+            *aspect_filters(target_width, target_height, aspect_policy),
         ])
     else:
         filters.extend([
-            f"scale={scale_size}:flags=lanczos",
+            *aspect_filters(target_width, target_height, aspect_policy),
             f"format={pix_fmt}",
         ])
     return ",".join(filters)
+
+
+def aspect_filters(target_width: int, target_height: int, aspect_policy: str) -> list[str]:
+    if aspect_policy == "fit":
+        return [
+            f"scale={target_width}:{target_height}:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos",
+            f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2",
+            "setsar=1",
+        ]
+    if aspect_policy == "fill":
+        return [
+            f"scale={target_width}:{target_height}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=lanczos",
+            f"crop={target_width}:{target_height}",
+            "setsar=1",
+        ]
+    if aspect_policy == "stretch":
+        return [
+            f"scale={target_width}:{target_height}:flags=lanczos",
+            "setsar=1",
+        ]
+    if aspect_policy == "native":
+        return [
+            f"scale={target_width}:{target_height}:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos",
+            "setsar=1",
+        ]
+    raise ValueError(f"Unsupported aspect policy: {aspect_policy}")
+
+
+def parse_resolution(resolution: str) -> tuple[int, int]:
+    try:
+        raw_width, raw_height = resolution.lower().split("x", 1)
+        width = int(raw_width)
+        height = int(raw_height)
+    except (AttributeError, ValueError) as exc:
+        raise ValueError(f"Invalid rendition resolution: {resolution}") from exc
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Invalid rendition resolution: {resolution}")
+    return width, height
 
 
 def add_aligned_gop_options(
@@ -399,6 +476,12 @@ def codec_value(values: dict[str, Any], codec: str, default: Any = None) -> Any:
     return values.get(codec, default)
 
 
+def resolve_output_prefix(output_prefix: str | None, profile_path: Path) -> str | None:
+    prefix = output_prefix if output_prefix is not None else profile_path.stem
+    clean = re.sub(r"[^A-Za-z0-9_.-]+", "_", prefix.strip()).strip("._-")
+    return clean or None
+
+
 def write_plan(
     output_dir: Path,
     source: Path,
@@ -418,8 +501,12 @@ def write_plan(
             "audio_codec": recommendation.get("audio_codec"),
             "audio_sample_rate": recommendation.get("audio_sample_rate"),
             "audio_channels": recommendation.get("audio_channels"),
+            "frame_rate_mode": recommendation.get("frame_rate_mode"),
+            "target_frame_rate": recommendation.get("target_frame_rate"),
+            "target_frame_rate_raw": recommendation.get("target_frame_rate_raw"),
             "color_mode": recommendation.get("color_mode"),
             "output_color_space": recommendation.get("output_color_space"),
+            "aspect_policy": recommendation.get("aspect_policy"),
             "packaging": recommendation.get("packaging"),
             "segment_format": recommendation.get("segment_format"),
             "gop_duration": recommendation.get("gop_duration"),
